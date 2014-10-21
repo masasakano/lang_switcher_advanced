@@ -1,0 +1,14 @@
+-----
+(Version: 0.1.1)
+2014-10-21  Masa Sakano
+ * Remove debugging print().
+
+-----
+2014-10-21  Masa Sakano
+
+ * lang_switcher_advanced.module -> lang_switcher_advanced.module.php
+
+-----
+2014-10-21  Masa Sakano
+
+ * Initial commit.  It seems this caused a memory crush of Drupal for an unknown reason.
