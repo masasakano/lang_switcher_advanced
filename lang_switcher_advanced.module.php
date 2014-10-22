@@ -45,7 +45,7 @@ function lang_switcher_advanced_block_view($delta = '') {
   switch ($delta) {
     case 'lang_switcher_advanced':
       $block['subject'] = t('Languages');
-      $block['content'] = lang_switcher_advanced_list(lang_switcher_advanced_core());
+      $block['content'] = langswitcheradvanced_list(langswitcheradvanced_core());
 	  //// https://www.drupal.org/node/1104498
       // if (user_access('access content')) {
       //   // Use our custom function to retrieve data.
@@ -107,7 +107,7 @@ function get_path_with_lang_prefix($prefix, $orgabspath, $lang_obj) {
  * @return string
  *    From <ul> to </ul>.
  */
-function lang_switcher_advanced_core() {
+function langswitcheradvanced_core() {
   
   global $language;
 
@@ -258,7 +258,7 @@ function lang_switcher_advanced_core() {
  * @return string
  *    From <ul> to </ul>.
  */
-function lang_switcher_advanced_list($links) {
+function langswitcheradvanced_list($links) {
   $retstr = '<ul class="language-switcher-locale-url">' . "\n";
   $n_enable = count($links);
   $i = 0;
@@ -296,7 +296,7 @@ function lang_switcher_advanced_list($links) {
  * @return string
  *    From <ul> to </ul>.
  */
-function lang_switcher_advanced_theme($links) {
+function langswitcheradvanced_theme($links) {
   $arlink = array ();
   foreach ($links as $eachc) {	// language-code
     $arlink[] = $eachc->link;

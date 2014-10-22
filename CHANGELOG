@@ -1,6 +1,12 @@
 -----
+(Version: 0.1.2)
+2014-10-22  Masa Sakano
+ * Renamed the functions that had confused Drupal and caused memory exhaustions while enabling the module.
+
+-----
 (Version: 0.1.1)
 2014-10-21  Masa Sakano
+
  * Remove debugging print().
 
 -----
