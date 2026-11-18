@@ -42,62 +42,13 @@ function lang_switcher_advanced_block_info() {
  * Prepares the contents of the block.
  */
 function lang_switcher_advanced_block_view($delta = '') {
+  // @see https://www.drupal.org/node/1104498
   switch ($delta) {
     case 'lang_switcher_advanced':
       $block['subject'] = t('Languages');
-      $block['content'] = langswitcheradvanced_list(langswitcheradvanced_core());
-	  //// https://www.drupal.org/node/1104498
-      // if (user_access('access content')) {
-      //   // Use our custom function to retrieve data.
-      //   $result = current_posts_contents();
-      //   // Array to contain items for the block to render.
-      //   $items = array();
-      //   // Iterate over the resultset and format as links.
-      //   foreach ($result as $node) {
-      //     $items[] = array(
-      //       'data' => l($node->title, 'node/' . $node->nid),
-      //     );
-      //   }
-      //  // No content in the last week.
-      //   if (empty($items)) {
-      //     $block['content'] = t('No posts available.');
-      //   }
-      //   else {
-      //     // Pass data through theme function.
-      //     $block['content'] = theme('item_list', array('items' => $items));
-      //   }
-      // }
+      $block['content'] = _langswitcheradvanced_list(_langswitcheradvanced_core());
     return $block;
   }
-}
-
-
-/**
- * Returns the path with the language prefix.
- *
- * @param $prefix  Language code path-prefix (eg., "ja").
- * @param $orgabspath  Absolute path (eg., info/site/un ).
- * @param $lcode  Language code (eg., "ja").
- * @return string  with a preceding forward-slash.
- *    "/ja/info/site/un"
- */
-function get_path_with_lang_prefix($prefix, $orgabspath, $lang_obj) {
-//drush_print("get_path_with_lang_prefix: " . $orgabspath);
-  $lcode = $lang_obj->language;	// 'ja' etc
-  $ret = preg_replace('@^(/)?@', '/' . $prefix . '/', url($orgabspath, array('language' => $lang_obj)));
-
-  $ret = preg_replace('@^/+@', '/', $ret);
-  // Eliminate duplicated slashes (when the language prefix is null, perhaps the default language).
-  $ret = preg_replace("@^(/$prefix){2}@", "/$prefix", $ret);
-  // Eliminate duplicated language prefixes.
-
-  if ($ret === "/$lcode/") {
-    // Adjustment for the front page (chopping the trailing forward-slash).
-    $ret = "/$lcode";
-//drush_print("Home page adjustment");
-  }
-
-  return($ret);
 }
 
 
@@ -107,7 +58,7 @@ function get_path_with_lang_prefix($prefix, $orgabspath, $lang_obj) {
  * @return string
  *    From <ul> to </ul>.
  */
-function langswitcheradvanced_core() {
+function _langswitcheradvanced_core() {
   
   global $language;
 
@@ -121,19 +72,14 @@ function langswitcheradvanced_core() {
     // Probably it is not on a node, like views or term or admin interface.
     $lang_page = $language->language;
     $flag['isNode'] = FALSE;
-//drush_print("No node language: " . $lang_page);
   }
   else {
     $lang_page = $node->language;
-//drush_print(sprintf("Language of the node (%s), Current (%s)", $lang_page, $language->language));
   }
-//drush_print("_GET['q']: " . $_GET['q']);
 
   $path = drupal_is_front_page() ? '<front>' : $_GET['q'];	# "node/1364" etc
   $hstpath = translation_path_get_translations($path);
   array_walk($hstpath, function(&$v, $k){$v = drupal_get_path_alias($v,$k);});
-//print_r($hstpath);
-//drush_print("path: " . $path . "  Translated: " . count($hstpath));
   $languages = language_list('enabled');
   $links = array();	// Associated array with keys of Language-code
   foreach ($languages[1] as $each_lang) {
@@ -157,17 +103,14 @@ function langswitcheradvanced_core() {
         // The current link contains the path prefix, hence no link.
         // Note if the prefix for the default language is undefined, this never happens.
         $linkinfo->link = $each_lang->native;	// Plain text
-//print("1. Identical languages, with the prefix: " . $lcode);
-//drush_print("1. Identical languages, with the prefix: " . $lcode);
       } else {
-//drush_print("2. Identical languages, with no prefix: " . $lcode);
-//print("2. Identical languages, with no prefix: " . $lcode);
         // The current link does not contain the path prefix.
         $linkinfo->link = t(
             '<a href="@url"!attr>@linkstr</a>',
             array(
               // '@url' => preg_replace('@^(/)?@', '/' . $each_lang->prefix . '/', url($linkpath, array('language' => $lcode))),
-              '@url' => get_path_with_lang_prefix($each_lang->prefix, $linkpath, $each_lang),
+              // '@url' => _get_path_with_lang_prefix($each_lang->prefix, $linkpath, $each_lang),
+              '@url' => url($linkpath, array('language' => $each_lang)),
               '!attr' => drupal_attributes($arattr),
               '@linkstr' => $each_lang->native,
             ),
@@ -180,8 +123,6 @@ function langswitcheradvanced_core() {
     }
     elseif ((array_key_exists($lcode, $hstpath)) ||
             (drupal_is_front_page()))  {		// Translation (or Frontpage)
-//drush_print("3. Translation: " . $lcode);
-//print("3. Translation: " . $lcode);
 
       // Defines the path to be transformed to the other language.
       if (array_key_exists($lcode, $hstpath)) {
@@ -196,11 +137,11 @@ function langswitcheradvanced_core() {
       $linkinfo->link = sprintf(
         '%s %s',
         t(
-          // '<a href="@url" title="Change the language to @tolang"!attr>@linkstr</a>',
           '<a href="@url"!attr>@linkstr</a>',
           array(
-            //'@url' => get_path_with_lang_prefix($each_lang->prefix, $linkpath, $each_lang),
-            '@url' => get_path_with_lang_prefix($each_lang->prefix, $linkpath, $each_lang),
+            //'@url' => _get_path_with_lang_prefix($each_lang->prefix, $linkpath, $each_lang),
+            // '@url' => _get_path_with_lang_prefix($each_lang->prefix, $linkpath, $each_lang),
+            '@url' => url($linkpath, array('language' => $each_lang)),
             '!attr' => drupal_attributes($arattr),
             '@linkstr' => $each_lang->native,
           ),
@@ -216,15 +157,11 @@ function langswitcheradvanced_core() {
     else {
       if (($lang_page == LANGUAGE_NONE) ||
           (! $flag['isNode'])) {	// Language neutral.
-//drush_print("4. Language Neutral, different lang in interface: " . $lcode);
-//print("4. Language Neutral, different lang in interface: " . $lcode);
         $cssstyle = '';
         $linkstr_en = 'Menu';
         $linkpath = $path;
       }
       else {	// No translation.
-//drush_print("5. No translation: " . $lcode);
-//print("5. No translation: " . $lcode);
         $cssstyle = 'text-decoration: line-through;';
         $linkstr_en = 'Home';
         $linkpath = '<front>';
@@ -237,7 +174,8 @@ function langswitcheradvanced_core() {
         t(
           '<a href="@url"!attr>@linkstr</a>',
           array(
-            '@url' => get_path_with_lang_prefix($each_lang->prefix, $linkpath, $each_lang),
+            // '@url' => _get_path_with_lang_prefix($each_lang->prefix, $linkpath, $each_lang),
+            '@url' => url($linkpath, array('language' => $each_lang)),
             '!attr' => drupal_attributes($arattr),
             '@linkstr' => t($linkstr_en, array(), array('langcode' => $lcode)),
           ),
@@ -258,7 +196,7 @@ function langswitcheradvanced_core() {
  * @return string
  *    From <ul> to </ul>.
  */
-function langswitcheradvanced_list($links) {
+function _langswitcheradvanced_list($links) {
   $retstr = '<ul class="language-switcher-locale-url">' . "\n";
   $n_enable = count($links);
   $i = 0;
@@ -289,23 +227,5 @@ function langswitcheradvanced_list($links) {
 
   return($retstr);
 }
-
-/**
- * Returns the HTML <ul> block of the language switcher.
- *
- * @return string
- *    From <ul> to </ul>.
- */
-function langswitcheradvanced_theme($links) {
-  $arlink = array ();
-  foreach ($links as $eachc) {	// language-code
-    $arlink[] = $eachc->link;
-  }
-  return theme('item_list', array('items' => $arlink), array('class' => array("language-switcher-locale-url")));
-  // title => '', type => 'ul'
-  // https://api.drupal.org/api/drupal/includes!theme.inc/function/theme_item_list/7
-}
-
-//drush_print(lang_switcher_advanced_list(lang_switcher_advanced_core()));
 
 
