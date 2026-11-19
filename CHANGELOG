@@ -1,4 +1,11 @@
 -----
+(Version: 11.x-1.0)
+2026-11-19  Masa Sakano
+
+ * Drupal 10.3+/11 re-implementation on branch 11.x: alters the links of core's language
+   switcher block (version / menu-only links); the D7 code stays on master.
+
+-----
 (Version: 0.1.2)
 2014-10-22  Masa Sakano
  * Renamed the functions that had confused Drupal and caused memory exhaustions while enabling the module.

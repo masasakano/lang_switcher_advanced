@@ -1,0 +1,7 @@
+name: 'Language Switcher Advanced'
+type: module
+description: 'Language switcher that shows where each language link goes: a translation, or the same page with the menus in that language.'
+package: Multilingual
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:language

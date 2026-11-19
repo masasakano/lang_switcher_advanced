@@ -1,0 +1,127 @@
+<?php
+
+/**
+ * @file
+ * Language Switcher Advanced (Drupal 10.3+ / 11).
+ *
+ * Drupal 11 re-implementation of the Drupal 7 module of the same name. It does
+ * not add a block of its own: it changes the links of core's language switcher
+ * block ("Language switcher" for the interface language), so place that block.
+ *
+ * Every enabled language is listed, and the visitor can see where each link goes:
+ *  - the current language: plain text, no link;
+ *  - a (viewable) translation exists, or the front page: "日本語版" / "English
+ *    version", linking to the translation;
+ *  - the content exists only in another language: the language name struck out,
+ *    followed by "(メニュー)" / "(menu)", linking to the SAME page with the menus
+ *    and interface in that language (useful when the site structure differs
+ *    between languages);
+ *  - language-neutral content or a non-node page: the language name followed by
+ *    "(メニュー)" / "(menu)", linking to the same page in that language.
+ *
+ * Unlike the D7 version, a page without a translation links to the same page
+ * (interface language only), not to the front page.
+ */
+
+use Drupal\Core\Language\LanguageInterface;
+use Drupal\Core\Url;
+use Drupal\node\NodeInterface;
+
+/**
+ * Returns the switcher wording for a target language.
+ *
+ * English and Japanese are built in. For any other language the English
+ * strings are passed through t() in that language, so they can be translated
+ * in the usual way (admin/config/regional/translate).
+ *
+ * @param string $langcode
+ *   The language the link leads to.
+ *
+ * @return array
+ *   Keys 'version' (with @name placeholder), 'menu', 'none'.
+ */
+function _lang_switcher_advanced_words(string $langcode): array {
+  $builtin = [
+    'en' => ['version' => '@name version', 'menu' => 'menu', 'none' => 'Not available in English'],
+    'ja' => ['version' => '@name版', 'menu' => 'メニュー', 'none' => '日本語版はありません'],
+  ];
+  if (isset($builtin[$langcode])) {
+    return $builtin[$langcode];
+  }
+  $opt = ['langcode' => $langcode, 'context' => 'lang_switcher_advanced'];
+  return [
+    // phpcs:disable Drupal.Semantics.FunctionT.NotLiteralString
+    'version' => (string) t('@name version', [], $opt),
+    'menu' => (string) t('menu', [], $opt),
+    'none' => (string) t('Not available in this language', [], $opt),
+    // phpcs:enable
+  ];
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for links__language_block.
+ */
+function lang_switcher_advanced_preprocess_links__language_block(array &$variables): void {
+  $lm = \Drupal::languageManager();
+  $current = $lm->getCurrentLanguage(LanguageInterface::TYPE_URL)->getId();
+  $route = \Drupal::routeMatch();
+  $node = $route->getRouteName() === 'entity.node.canonical' ? $route->getParameter('node') : NULL;
+  if (!$node instanceof NodeInterface) {
+    $node = NULL;
+  }
+  $is_front = \Drupal::service('path.matcher')->isFrontPage();
+
+  foreach ($variables['links'] as $langcode => &$item) {
+    if (empty($item['link'])) {
+      continue;
+    }
+    $language = $lm->getLanguage($langcode);
+    if (!$language) {
+      continue;
+    }
+    $w = _lang_switcher_advanced_words($langcode);
+    $name = (string) ($item['link']['#title'] ?? $language->getName());
+    $ctx = ['name' => $name, 'lc' => $langcode];
+
+    if ($langcode === $current) {
+      $template = '<span class="language-link is-current" lang="{{ lc }}" aria-current="true">{{ name }}</span>';
+      $class = 'is-current';
+    }
+    // Only link to a translation the visitor may see (an unpublished translation would give "access denied").
+    elseif (($node && $node->hasTranslation($langcode) && $node->getTranslation($langcode)->access('view')) || $is_front) {
+      $url = $node && !$is_front
+        ? $node->getTranslation($langcode)->toUrl('canonical', ['language' => $language])
+        : Url::fromRoute('<front>', [], ['language' => $language]);
+      $ctx['url'] = $url->toString();
+      $ctx['label'] = strtr($w['version'], ['@name' => $name]);
+      $template = '<a href="{{ url }}" class="language-link" hreflang="{{ lc }}" lang="{{ lc }}">{{ label }}</a>';
+      $class = 'is-translation';
+    }
+    else {
+      // Same page, interface (menus) in that language. Core keeps 'language' and 'query' in the link's
+      // #options (LanguageNegotiationUrl::getLanguageSwitchLinks()), not on the Url object: merge them in,
+      // otherwise the link would point to the current-language URL.
+      $url = isset($item['link']['#url']) ? clone $item['link']['#url'] : Url::fromRoute('<current>');
+      $url->mergeOptions(array_intersect_key($item['link']['#options'] ?? [], ['query' => 1]) + ['language' => $language]);
+      $ctx['url'] = $url->toString();
+      $ctx['menu'] = $w['menu'];
+      $ctx['none'] = $w['none'];
+      $untranslated = $node && !in_array($node->language()->getId(), [LanguageInterface::LANGCODE_NOT_SPECIFIED, LanguageInterface::LANGCODE_NOT_APPLICABLE], TRUE);
+      $template = $untranslated
+        ? '<span class="language-link is-unavailable" lang="{{ lc }}" title="{{ none }}"><s>{{ name }}</s></span> (<a href="{{ url }}" hreflang="{{ lc }}" lang="{{ lc }}">{{ menu }}</a>)'
+        : '<span class="language-link" lang="{{ lc }}">{{ name }}</span> (<a href="{{ url }}" hreflang="{{ lc }}" lang="{{ lc }}">{{ menu }}</a>)';
+      $class = $untranslated ? 'is-unavailable' : 'is-interface';
+    }
+
+    $item['link'] = ['#type' => 'inline_template', '#template' => $template, '#context' => $ctx];
+    if (isset($item['attributes'])) {
+      $item['attributes']->addClass($class);
+    }
+  }
+  unset($item);
+  $variables['#cache']['contexts'][] = 'url.path';
+  $variables['#cache']['contexts'][] = 'route';
+  $variables['#cache']['contexts'][] = 'languages:' . LanguageInterface::TYPE_URL;
+  // The result depends on the node's translations and their access: do not cache the block output.
+  $variables['#cache']['max-age'] = 0;
+}
